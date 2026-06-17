@@ -109,6 +109,7 @@ if submitted:
         catalog_df = parse_catalog_df(payload)
         catalog_df.insert(0, "選択", False)
         st.session_state["catalog_df"] = catalog_df
+        st.session_state["display_df"] = catalog_df.copy()
         st.session_state["selected_stats_ids"] = []
         st.session_state["prev_bulk_titles"] = []
     except EstatApiError as exc:
@@ -118,7 +119,13 @@ if submitted:
 
 # ---------- 結果表示 ----------
 catalog_df: pd.DataFrame | None = st.session_state.get("catalog_df")
+display_df: pd.DataFrame | None = st.session_state.get("display_df")
+
 if catalog_df is not None and not catalog_df.empty:
+    if display_df is None:
+        display_df = catalog_df.copy()
+        st.session_state["display_df"] = display_df
+
     st.subheader("検索結果")
 
     unique_titles = catalog_df["表題"].dropna().unique().tolist()
@@ -142,10 +149,12 @@ if catalog_df is not None and not catalog_df.empty:
         st.session_state["prev_bulk_titles"] = bulk_titles
         catalog_df = df
 
-    # 選択済み先頭・類似度順にソート
-    display_df = sort_by_selection_and_similarity(catalog_df)
+    # display_df の選択列を catalog_df から同期（行順は変えない）
+    sel_map = catalog_df.set_index("statsDataId")["選択"]
+    display_df = display_df.copy()
+    display_df["選択"] = display_df["statsDataId"].map(sel_map)
 
-    st.caption("左端のチェックボックスで個別に選択・解除できます。選択済み行が先頭に表示されます。")
+    st.caption("左端のチェックボックスで個別に選択・解除できます。")
     edited_df = st.data_editor(
         display_df,
         use_container_width=True,
@@ -157,13 +166,20 @@ if catalog_df is not None and not catalog_df.empty:
         key="catalog_editor",
     )
 
-    # 個別チェック編集をセッションに反映（表示順→元のインデックスで上書き）
+    # 個別チェック編集をセッションに反映
     merged = catalog_df.set_index("statsDataId")
     for _, row in edited_df.iterrows():
         sid = row.get("statsDataId")
         if sid and sid in merged.index:
             merged.at[sid, "選択"] = row["選択"]
-    st.session_state["catalog_df"] = merged.reset_index()
+    catalog_df = merged.reset_index()
+    st.session_state["catalog_df"] = catalog_df
+
+    # display_df の選択列のみ更新（行順は変えない）
+    updated_sel_map = catalog_df.set_index("statsDataId")["選択"]
+    display_df_saved = st.session_state["display_df"].copy()
+    display_df_saved["選択"] = display_df_saved["statsDataId"].map(updated_sel_map)
+    st.session_state["display_df"] = display_df_saved
 
     selected_ids = (
         edited_df.loc[edited_df["選択"], "statsDataId"]

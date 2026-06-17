@@ -33,11 +33,20 @@ limit = st.number_input(
     max_value=100000,
     value=10000,
     step=100,
+    key="fetch_limit",
     help="MVPでは大量データ取得を避けるため上限を指定できます。",
 )
 collect_all_pages = st.checkbox("NEXT_KEYで全ページ取得する", value=False)
 
-if st.button("データ取得とJoin判定を実行", type="primary"):
+btn_col1, btn_col2 = st.columns([3, 2])
+with btn_col1:
+    run_button = st.button("データ取得とJoin判定を実行", type="primary")
+with btn_col2:
+    if st.button("10万件にセット"):
+        st.session_state["fetch_limit"] = 100000
+        st.rerun()
+
+if run_button:
     client = EstatClient(api_key)
     meta_dfs = {}
     analysis_dfs = []
