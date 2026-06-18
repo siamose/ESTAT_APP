@@ -27,11 +27,16 @@ except EnvironmentError as e:
 st.write("選択中の statsDataId")
 st.code("\n".join(selected_ids))
 
+def _set_max_fetch_limit() -> None:
+    # コールバックはウィジェット生成前に走るため、ここでなら値を更新できる
+    st.session_state["fetch_limit"] = 100000
+
+
+st.session_state.setdefault("fetch_limit", 10000)
 limit = st.number_input(
     "各統計表の最大取得件数",
     min_value=100,
     max_value=100000,
-    value=10000,
     step=100,
     key="fetch_limit",
     help="MVPでは大量データ取得を避けるため上限を指定できます。",
@@ -42,9 +47,7 @@ btn_col1, btn_col2 = st.columns([3, 2])
 with btn_col1:
     run_button = st.button("データ取得とJoin判定を実行", type="primary")
 with btn_col2:
-    if st.button("10万件にセット"):
-        st.session_state["fetch_limit"] = 100000
-        st.rerun()
+    st.button("10万件にセット", on_click=_set_max_fetch_limit)
 
 if run_button:
     client = EstatClient(api_key)
